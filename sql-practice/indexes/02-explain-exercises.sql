@@ -1,0 +1,189 @@
+-- ============================================================
+-- 02-explain-exercises.sql
+-- Reading and Interpreting EXPLAIN Output
+-- ============================================================
+-- Goal: Learn to read EXPLAIN/EXPLAIN ANALYZE output,
+-- identify performance problems, and recommend indexes.
+-- ============================================================
+
+-- ============================================================
+-- BACKGROUND: Key EXPLAIN Concepts
+-- ============================================================
+-- Seq Scan: Reads every row in the table (slow for large tables)
+-- Index Scan: Uses an index to find specific rows (fast)
+-- Index Only Scan: Gets data entirely from the index (fastest)
+-- Bitmap Index Scan: Uses index to create a bitmap, then reads pages
+-- Nested Loop: Joins by looping through inner table for each outer row
+-- Hash Join: Builds a hash table from one side, probes with other
+-- cost=X..Y: X = startup cost, Y = total cost (arbitrary units)
+-- rows=N: Estimated number of rows
+-- actual time: Real execution time in milliseconds
+-- ============================================================
+
+-- ============================================================
+-- EXERCISE 1: Identify the Scan Type
+-- ============================================================
+-- Given this EXPLAIN output, answer the questions below:
+--
+-- QUERY: SELECT * FROM orders WHERE customer_id = 12345;
+--
+-- EXPLAIN output:
+-- ┌─────────────────────────────────────────────────────────────┐
+-- │ Seq Scan on orders  (cost=0.00..1250.00 rows=50 width=64)  │
+-- │   Filter: (customer_id = 12345)                             │
+-- │   Rows Removed by Filter: 49950                             │
+-- └─────────────────────────────────────────────────────────────┘
+--
+-- QUESTIONS:
+-- Q1: What scan type is being used?
+-- Q2: Is this efficient for a table with 50,000 rows? Why or why not?
+-- Q3: What index would you create to improve this query?
+-- Q4: What scan type would you expect AFTER adding the index?
+--
+-- YOUR ANSWERS:
+-- A1:
+-- A2:
+-- A3:
+-- A4:
+
+
+-- ============================================================
+-- EXERCISE 2: Composite Index Analysis
+-- ============================================================
+-- Given this EXPLAIN output for a query with two conditions:
+--
+-- QUERY: SELECT * FROM orders WHERE status = 'pending' AND order_date > '2024-01-01';
+--
+-- EXPLAIN output:
+-- ┌──────────────────────────────────────────────────────────────────┐
+-- │ Seq Scan on orders  (cost=0.00..1500.00 rows=3200 width=64)     │
+-- │   Filter: ((status = 'pending') AND (order_date > '2024-01-01'))│
+-- │   Rows Removed by Filter: 46800                                  │
+-- └──────────────────────────────────────────────────────────────────┘
+--
+-- QUESTIONS:
+-- Q1: Why is the database doing a Seq Scan here?
+-- Q2: What composite index would help this query?
+-- Q3: Does the column order in the composite index matter? Why?
+-- Q4: Would a single-column index on just status help? How much?
+--
+-- YOUR ANSWERS:
+-- A1:
+-- A2:
+-- A3:
+-- A4:
+
+-- ============================================================
+-- EXERCISE 3: Index Scan vs Bitmap Scan
+-- ============================================================
+-- Given this EXPLAIN output AFTER adding an index:
+--
+-- QUERY: SELECT * FROM orders WHERE customer_id IN (100, 200, 300, 400, 500);
+--
+-- EXPLAIN output:
+-- ┌──────────────────────────────────────────────────────────────────────┐
+-- │ Bitmap Heap Scan on orders  (cost=20.15..450.30 rows=250 width=64)  │
+-- │   Recheck Cond: (customer_id = ANY ('{100,200,300,400,500}'))        │
+-- │   -> Bitmap Index Scan on idx_orders_customer                        │
+-- │        Index Cond: (customer_id = ANY ('{100,200,300,400,500}'))     │
+-- └──────────────────────────────────────────────────────────────────────┘
+--
+-- QUESTIONS:
+-- Q1: Is this using an index? Which one?
+-- Q2: Why is it a Bitmap scan instead of a regular Index Scan?
+-- Q3: What does "Recheck Cond" mean?
+-- Q4: Is this query well-optimized? Why or why not?
+--
+-- YOUR ANSWERS:
+-- A1:
+-- A2:
+-- A3:
+-- A4:
+
+
+-- ============================================================
+-- EXERCISE 4: JOIN Performance
+-- ============================================================
+-- Given this EXPLAIN for a JOIN query:
+--
+-- QUERY: SELECT o.order_id, p.product_name
+--        FROM order_items oi
+--        JOIN orders o ON o.order_id = oi.order_id
+--        JOIN products p ON p.product_id = oi.product_id
+--        WHERE o.status = 'pending';
+--
+-- EXPLAIN output:
+-- ┌─────────────────────────────────────────────────────────────────────┐
+-- │ Hash Join  (cost=1200.00..5500.00 rows=12500 width=40)             │
+-- │   Hash Cond: (oi.order_id = o.order_id)                            │
+-- │   -> Seq Scan on order_items  (cost=0.00..2000.00 rows=100000)     │
+-- │   -> Hash  (cost=1000.00..1000.00 rows=12500)                      │
+-- │        -> Seq Scan on orders  (cost=0.00..1000.00 rows=12500)      │
+-- │              Filter: (status = 'pending')                           │
+-- │   -> Index Scan using products_pkey on products                     │
+-- │        Index Cond: (product_id = oi.product_id)                     │
+-- └─────────────────────────────────────────────────────────────────────┘
+--
+-- QUESTIONS:
+-- Q1: Which tables are using sequential scans (potential problems)?
+-- Q2: Which table is already using an index scan? Why?
+-- Q3: What index would help the orders table in this query?
+-- Q4: What index would help the order_items table?
+-- Q5: After adding indexes, what join type might replace Hash Join?
+--
+-- YOUR ANSWERS:
+-- A1:
+-- A2:
+-- A3:
+-- A4:
+-- A5:
+
+
+-- ============================================================
+-- EXERCISE 5: Before and After Comparison
+-- ============================================================
+-- You will create a scenario, run EXPLAIN, add an index, and compare.
+--
+-- TASK: Write a query that finds all orders from 'Phnom Penh'
+-- placed in the last 30 days with amount > $100.
+--
+-- Step 1: Write the query
+-- SELECT ...
+
+-- Step 2: Predict what EXPLAIN will show WITHOUT any custom indexes
+-- (Write your prediction here)
+
+-- Step 3: Design the optimal index for this query
+-- CREATE INDEX ...
+
+-- Step 4: Predict what EXPLAIN will show AFTER adding the index
+-- (Write your prediction here)
+
+-- ============================================================
+-- ANSWER KEY
+-- ============================================================
+
+-- Exercise 1:
+-- A1: Seq Scan (reading all rows one by one)
+-- A2: No, very inefficient. It reads 50,000 rows to find ~50.
+-- A3: CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+-- A4: Index Scan (or possibly Index Only Scan)
+
+-- Exercise 2:
+-- A1: No index exists for status + order_date combination
+-- A2: CREATE INDEX idx_orders_status_date ON orders(status, order_date);
+-- A3: Yes! Status has fewer distinct values so put it first (equality before range)
+-- A4: Somewhat — it would filter by status quickly but still scan many rows
+
+-- Exercise 3:
+-- A1: Yes, using idx_orders_customer via Bitmap Index Scan
+-- A2: Multiple values (IN list) — bitmap is efficient for combining results
+-- A3: After finding pages via bitmap, it re-verifies rows match the condition
+-- A4: Yes, well-optimized. The cost dropped from 1250 to 450.
+
+-- Exercise 4:
+-- A1: order_items and orders are using Seq Scans
+-- A2: products uses products_pkey (primary key index on product_id)
+-- A3: CREATE INDEX idx_orders_status ON orders(status);
+-- A4: CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+-- A5: Nested Loop (more efficient for smaller result sets)
